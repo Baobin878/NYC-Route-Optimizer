@@ -1,0 +1,122 @@
+
+<!-- templates/index.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>NYC Route Optimizer</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Include Leaflet for lightweight mapping -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <style>
+        #map {
+            height: 600px;
+            margin-top: 20px;
+            border-radius: 5px;
+        }
+        .control-panel {
+            padding: 20px;
+            background: white;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-md-4">
+                <div class="control-panel">
+                    <h3>NYC Route Optimizer</h3>
+                    <form id="route-form">
+                        <div class="mb-3">
+                            <label>Start Location</label>
+                            <input type="number" class="form-control" id="start-lat" value="40.7461" step="0.0001" required>
+                            <input type="number" class="form-control mt-2" id="start-lon" value="-73.9861" step="0.0001" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label>End Location</label>
+                            <input type="number" class="form-control" id="end-lat" value="40.7527" step="0.0001" required>
+                            <input type="number" class="form-control mt-2" id="end-lon" value="-73.9772" step="0.0001" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label>Optimization Strategy</label>
+                            <select class="form-control" id="optimize-for">
+                                <option value="distance">Shortest Distance</option>
+                                <option value="time">Fastest Route</option>
+                            </select>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary">Find Route</button>
+                    </form>
+                    
+                    <div id="route-info" class="mt-3" style="display:none;">
+                        <h5>Route Information</h5>
+                        <p>Distance: <span id="distance"></span></p>
+                        <p>Estimated Time: <span id="estimated-time"></span></p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-8">
+                <div id="map"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        // Initialize map
+        var map = L.map('map').setView([40.7527, -73.9772], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+        
+        var routeLine;
+        
+        $('#route-form').on('submit', function(e) {
+            e.preventDefault();
+            
+            const data = {
+                start_lat: parseFloat($('#start-lat').val()),
+                start_lon: parseFloat($('#start-lon').val()),
+                end_lat: parseFloat($('#end-lat').val()),
+                end_lon: parseFloat($('#end-lon').val()),
+                optimize_for: $('#optimize-for').val()
+            };
+            
+            $.ajax({
+                url: '/find_route',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(data),
+                success: function(response) {
+                    if (!response.success) {
+                        alert(response.error);
+                        return;
+                    }
+                    
+                    // Clear previous route
+                    if (routeLine) {
+                        map.removeLayer(routeLine);
+                    }
+                    
+                    // Draw new route
+                    routeLine = L.polyline(response.path, {color: 'blue'}).addTo(map);
+                    map.fitBounds(routeLine.getBounds());
+                    
+                    // Update info
+                    $('#distance').text(response.distance);
+                    $('#estimated-time').text(response.estimated_time);
+                    $('#route-info').show();
+                },
+                error: function(xhr, status, error) {
+                    alert('Error finding route: ' + error);
+                }
+            });
+        });
+    </script>
+</body>
+</html>
